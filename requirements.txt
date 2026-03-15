@@ -1,6 +1,0 @@
-flask==3.0.3
-requests==2.31.0
-numpy==1.26.4
-pandas==2.2.2
-yfinance==0.2.40
-plotly==5.22.0
