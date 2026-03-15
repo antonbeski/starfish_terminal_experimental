@@ -5,12 +5,10 @@ import traceback
 import requests
 import random
 import json
-import threading
 import numpy as np
 import pandas as pd
 import xml.etree.ElementTree as ET
-from collections import deque
-from flask import Flask, request, jsonify, Response, stream_with_context
+from flask import Flask, request, jsonify
 import yfinance as yf
 import plotly.graph_objects as go
 import plotly.offline as pyo
@@ -29,39 +27,16 @@ AI_MODELS = [
 RL_RPM = 20
 RL_RPD = 200
 
-_rl_lock  = threading.Lock()
-_rl_state = {m["key"]: {"rpm": deque(), "rpd": deque()} for m in AI_MODELS}
-
-
-def _rl_clean(key):
-    now = time.time()
-    while _rl_state[key]["rpm"] and now - _rl_state[key]["rpm"][0] > 60:
-        _rl_state[key]["rpm"].popleft()
-    while _rl_state[key]["rpd"] and now - _rl_state[key]["rpd"][0] > 86400:
-        _rl_state[key]["rpd"].popleft()
-
-
+# Serverless note: rate-limit state cannot persist across invocations.
+# These stubs always report available=True. OpenRouter itself enforces limits.
 def rl_check(key):
-    with _rl_lock:
-        _rl_clean(key)
-        ru = len(_rl_state[key]["rpm"])
-        du = len(_rl_state[key]["rpd"])
-    return {"rpm_used": ru, "rpm_max": RL_RPM, "rpd_used": du, "rpd_max": RL_RPD,
-            "available": ru < RL_RPM and du < RL_RPD}
-
+    return {"rpm_used": 0, "rpm_max": RL_RPM, "rpd_used": 0, "rpd_max": RL_RPD, "available": True}
 
 def rl_record(key):
-    with _rl_lock:
-        t = time.time()
-        _rl_state[key]["rpm"].append(t)
-        _rl_state[key]["rpd"].append(t)
-
+    pass
 
 def rl_next_rpm_reset(key):
-    with _rl_lock:
-        if not _rl_state[key]["rpm"]:
-            return 0
-        return max(0, int(60 - (time.time() - _rl_state[key]["rpm"][0])))
+    return 0
 
 
 # ── YouTube live news ────────────────────────────────────────────────────────
@@ -1147,12 +1122,44 @@ function renderSynthesis(r){{
   setStepBody('qwen',html,true);
 }}
 
+function animateSteps(data){{
+  var delay=0;
+  MODELS.forEach(function(m,i){{
+    setTimeout(function(){{
+      setStepStatus(m.key,'running');
+      document.getElementById('orch-status-lbl').textContent=m.label+': thinking…';
+      setStepBody(m.key,'<div class="ai-loading"><div class="ai-spin"></div><div class="ai-load-txt">'+esc(m.label)+' analysing…</div></div>',true);
+    }},delay);
+    delay+=900;
+    setTimeout(function(){{
+      var step=data.steps&&data.steps[m.key];
+      if(!step){{setStepStatus(m.key,'error');return;}}
+      if(step.status==='error'){{
+        setStepStatus(m.key,'error');
+        setStepBody(m.key,'<div style="color:#ef5350;font-size:.78rem;padding:8px 0">'+esc(step.error||'Unknown error')+'</div>',true);
+      }}else{{
+        setStepStatus(m.key,'done');
+        if(m.key==='deepseek')renderTechnical(step.result);
+        else if(m.key==='llama')renderMacro(step.result);
+        else if(m.key==='qwen')renderSynthesis(step.result);
+      }}
+    }},delay);
+    delay+=600;
+  }});
+  setTimeout(function(){{
+    if(data.final){{renderFinalVerdict(data.final);document.getElementById('orch-status-lbl').textContent='Analysis complete';}}
+    orchRunning=false;
+    document.getElementById('btn-orch').disabled=false;
+    document.getElementById('btn-orch').textContent='▶ Run Analysis';
+  }},delay+200);
+}}
+
 function runOrchestration(){{
   if(orchRunning)return;
   orchRunning=true;
   var btn=document.getElementById('btn-orch');
   btn.disabled=true; btn.textContent='Running…';
-  document.getElementById('orch-status-lbl').textContent='';
+  document.getElementById('orch-status-lbl').textContent='Fetching market data…';
   document.getElementById('final-verdict').className='final-verdict';
   MODELS.forEach(function(m){{setStepStatus(m.key,'waiting');setStepBody(m.key,'',false);}});
 
@@ -1161,53 +1168,17 @@ function runOrchestration(){{
     headers:{{'Content-Type':'application/json'}},
     body:JSON.stringify({{ticker:TICKER,period:PERIOD}})
   }}).then(function(res){{
-    if(!res.ok||!res.body)return res.json().then(function(d){{throw new Error(d.error||'HTTP '+res.status);}});
-    var reader=res.body.getReader();
-    var decoder=new TextDecoder();
-    var buf='';
-    function pump(){{
-      return reader.read().then(function({{done,value}}){{
-        if(done){{orchRunning=false;btn.disabled=false;btn.textContent='▶ Run Analysis';return;}}
-        buf+=decoder.decode(value,{{stream:true}});
-        var lines=buf.split('\\n');
-        buf=lines.pop();
-        lines.forEach(function(line){{
-          if(!line.startsWith('data:'))return;
-          try{{
-            var ev=JSON.parse(line.slice(5).trim());
-            handleEvent(ev);
-          }}catch(e){{}}
-        }});
-        return pump();
-      }});
-    }}
-    return pump();
+    return res.json().then(function(data){{
+      if(!res.ok||data.error)throw new Error(data.error||'HTTP '+res.status);
+      return data;
+    }});
+  }}).then(function(data){{
+    document.getElementById('orch-status-lbl').textContent='Rendering results…';
+    animateSteps(data);
   }}).catch(function(err){{
     orchRunning=false;btn.disabled=false;btn.textContent='▶ Run Analysis';
     document.getElementById('orch-status-lbl').textContent='Error: '+err.message;
-    MODELS.forEach(function(m){{if(document.getElementById('pipe-status-'+m.key).textContent==='running')setStepStatus(m.key,'error');}});
   }});
-}}
-
-function handleEvent(ev){{
-  if(ev.type==='step_start'){{
-    setStepStatus(ev.key,'running');
-    document.getElementById('orch-status-lbl').textContent=ev.label+': thinking…';
-    setStepBody(ev.key,'<div class="ai-loading"><div class="ai-spin"></div><div class="ai-load-txt">'+esc(ev.label)+' analysing…</div></div>',true);
-  }}else if(ev.type==='step_done'){{
-    setStepStatus(ev.key,'done');
-    if(ev.key==='deepseek')renderTechnical(ev.result);
-    else if(ev.key==='llama')renderMacro(ev.result);
-    else if(ev.key==='qwen')renderSynthesis(ev.result);
-  }}else if(ev.type==='step_error'){{
-    setStepStatus(ev.key,'error');
-    setStepBody(ev.key,'<div style="color:#ef5350;font-size:.78rem;padding:8px 0">'+esc(ev.error)+'</div>',true);
-  }}else if(ev.type==='final'){{
-    renderFinalVerdict(ev.result);
-    document.getElementById('orch-status-lbl').textContent='Analysis complete';
-  }}else if(ev.type==='error'){{
-    document.getElementById('orch-status-lbl').textContent='Error: '+esc(ev.error);
-  }}
 }}
 
 // ══ RSS NEWS FEED ════════════════════════════════════════════════════════════
@@ -1306,94 +1277,75 @@ def index():
 
 @app.route("/api/orchestrate", methods=["POST"])
 def api_orchestrate():
-    """Streams the 3-AI pipeline as Server-Sent Events."""
+    """Runs the full 3-AI pipeline synchronously and returns one JSON response.
+    Vercel serverless does not support SSE/streaming, so we run all steps and
+    return everything at once. The frontend animates the steps from the result."""
     body   = request.get_json(force=True) or {}
     ticker = (body.get("ticker","AAPL") or "AAPL").strip().upper()
     period = body.get("period","6mo")
     if period not in VALID_PERIODS: period = "6mo"
 
-    def generate():
-        def send(obj):
-            return f"data: {json.dumps(obj)}\n\n"
+    steps  = {}   # collects per-step results + errors
+    errors = []
 
-        # Fetch market data once
-        try:
-            df, err = fetch_yfinance_data(ticker, period)
-            if err or df is None or df.empty:
-                yield send({"type":"error","error":f"Data fetch failed: {err or 'No data'}"})
-                return
-            name = _get_name(ticker)
-            payload = build_analysis_payload(ticker, period, name, df)
-        except Exception as e:
-            yield send({"type":"error","error":f"Setup error: {e}"})
-            return
+    # ── Fetch market data ──
+    try:
+        df, err = fetch_yfinance_data(ticker, period)
+        if err or df is None or df.empty:
+            return jsonify({"error": f"Data fetch failed: {err or 'No data'}"}), 502
+        name    = _get_name(ticker)
+        payload = build_analysis_payload(ticker, period, name, df)
+    except Exception as e:
+        return jsonify({"error": f"Setup error: {e}"}), 500
 
-        # Fetch RSS headlines for macro context
-        try:
-            headlines = fetch_all_rss(20)
-        except Exception:
-            headlines = []
+    # ── Fetch RSS headlines ──
+    try:
+        headlines = fetch_all_rss(20)
+    except Exception:
+        headlines = []
 
-        # ── STEP 1: DeepSeek — Technical Analysis ──
-        technical_result = None
-        m1 = AI_MODELS[0]
-        yield send({"type":"step_start","key":m1["key"],"label":m1["label"]})
+    # ── STEP 1: DeepSeek — Technical Analysis ──
+    technical_result = None
+    m1 = AI_MODELS[0]
+    try:
+        prompt1 = build_technical_prompt(payload)
+        technical_result = call_openrouter(m1["id"], prompt1)
+        steps[m1["key"]] = {"status": "done", "result": technical_result}
+    except Exception as e:
+        steps[m1["key"]] = {"status": "error", "error": str(e)}
+        errors.append(str(e))
+        technical_result = {"technical_verdict":"NEUTRAL","technical_analysis":"Analysis failed.","technical_bias":"Unknown.","confidence_score":50,"key_levels":{},"indicator_signals":{},"pattern_detected":""}
 
-        rl = rl_check(m1["key"])
-        if not rl["available"]:
-            yield send({"type":"step_error","key":m1["key"],"error":"Rate limit reached for "+m1["label"]})
-        else:
-            try:
-                prompt1 = build_technical_prompt(payload)
-                technical_result = call_openrouter(m1["id"], prompt1)
-                rl_record(m1["key"])
-                yield send({"type":"step_done","key":m1["key"],"result":technical_result})
-            except Exception as e:
-                yield send({"type":"step_error","key":m1["key"],"error":str(e)})
-                technical_result = {"technical_verdict":"NEUTRAL","technical_analysis":"Analysis failed.","technical_bias":"Unknown.","confidence_score":50,"key_levels":{},"indicator_signals":{},"pattern_detected":""}
+    # ── STEP 2: Llama — Macro + News ──
+    macro_result = None
+    m2 = AI_MODELS[1]
+    try:
+        prompt2 = build_macro_prompt(payload, technical_result or {}, headlines)
+        macro_result = call_openrouter(m2["id"], prompt2)
+        steps[m2["key"]] = {"status": "done", "result": macro_result}
+    except Exception as e:
+        steps[m2["key"]] = {"status": "error", "error": str(e)}
+        errors.append(str(e))
+        macro_result = {"macro_verdict":"NEUTRAL","macro_environment":"Analysis failed.","news_impact":"Unknown.","catalyst_ahead":"","macro_risk":"","macro_confidence_score":50,"relevant_headlines":[]}
 
-        # ── STEP 2: Llama — Macro + News ──
-        macro_result = None
-        m2 = AI_MODELS[1]
-        yield send({"type":"step_start","key":m2["key"],"label":m2["label"]})
+    # ── STEP 3: Qwen — Final Synthesis ──
+    synthesis_result = None
+    m3 = AI_MODELS[2]
+    try:
+        prompt3 = build_synthesis_prompt(payload, technical_result or {}, macro_result or {})
+        synthesis_result = call_openrouter(m3["id"], prompt3)
+        steps[m3["key"]] = {"status": "done", "result": synthesis_result}
+    except Exception as e:
+        steps[m3["key"]] = {"status": "error", "error": str(e)}
+        errors.append(str(e))
 
-        rl2 = rl_check(m2["key"])
-        if not rl2["available"]:
-            yield send({"type":"step_error","key":m2["key"],"error":"Rate limit reached for "+m2["label"]})
-        else:
-            try:
-                prompt2 = build_macro_prompt(payload, technical_result or {}, headlines)
-                macro_result = call_openrouter(m2["id"], prompt2)
-                rl_record(m2["key"])
-                yield send({"type":"step_done","key":m2["key"],"result":macro_result})
-            except Exception as e:
-                yield send({"type":"step_error","key":m2["key"],"error":str(e)})
-                macro_result = {"macro_verdict":"NEUTRAL","macro_environment":"Analysis failed.","news_impact":"Unknown.","catalyst_ahead":"","macro_risk":"","macro_confidence_score":50,"relevant_headlines":[]}
-
-        # ── STEP 3: Qwen — Final Synthesis ──
-        m3 = AI_MODELS[2]
-        yield send({"type":"step_start","key":m3["key"],"label":m3["label"]})
-
-        rl3 = rl_check(m3["key"])
-        if not rl3["available"]:
-            yield send({"type":"step_error","key":m3["key"],"error":"Rate limit reached for "+m3["label"]})
-            yield send({"type":"error","error":"Rate limit reached on final synthesizer."})
-        else:
-            try:
-                prompt3 = build_synthesis_prompt(payload, technical_result or {}, macro_result or {})
-                synthesis_result = call_openrouter(m3["id"], prompt3)
-                rl_record(m3["key"])
-                yield send({"type":"step_done","key":m3["key"],"result":synthesis_result})
-                yield send({"type":"final","result":synthesis_result})
-            except Exception as e:
-                yield send({"type":"step_error","key":m3["key"],"error":str(e)})
-                yield send({"type":"error","error":str(e)})
-
-    return Response(
-        stream_with_context(generate()),
-        mimetype="text/event-stream",
-        headers={"Cache-Control":"no-cache","X-Accel-Buffering":"no"}
-    )
+    return jsonify({
+        "ticker":   ticker,
+        "period":   period,
+        "steps":    steps,
+        "final":    synthesis_result,
+        "errors":   errors,
+    })
 
 
 @app.route("/api/rss")
