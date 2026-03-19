@@ -174,7 +174,7 @@ def fetch_all_news(sector_id):
 
 
 # ── HTML ──────────────────────────────────────────────────────────────────────
-HTML = r"""<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -340,14 +340,62 @@ header{
   background:linear-gradient(90deg,transparent,var(--gold));
 }
 .hero-eyebrow::after{background:linear-gradient(-90deg,transparent,var(--gold))}
+
+/* ── HERO H1: FIXED MOBILE RESPONSIVE ── */
 .hero h1{
   font-family:'Playfair Display',serif;
-  font-size:clamp(2.8rem,8vw,6.5rem);
-  font-weight:900;line-height:0.95;letter-spacing:-2px;
-  color:var(--ink);margin-bottom:1.5rem;
+  font-weight:900;
+  line-height:1;
+  letter-spacing:-2px;
+  color:var(--ink);
+  margin-bottom:1.5rem;
+
+  /* 3-breakpoint fluid scale: mobile 2rem → tablet 5vw → desktop 6.5rem */
+  font-size:clamp(2rem, 10vw, 6.5rem);
 }
+
+/* On very small screens tighten padding so text has more room */
+@media(max-width:480px){
+  .hero h1{
+    font-size:clamp(1.75rem, 11vw, 2.8rem);
+    letter-spacing:-0.5px;
+    line-height:1.08;
+  }
+  /* Thinner stroke on outlined word so it stays legible at small sizes */
+  .hero h1 .outlined{
+    -webkit-text-stroke:1px var(--ink);
+  }
+  /* Allow "Intelligence Aggregated" to stack neatly */
+  .hero h1 .hero-h1-line2{
+    display:block;
+  }
+  .hero{
+    padding-left:1rem;
+    padding-right:1rem;
+  }
+}
+@media(min-width:481px) and (max-width:768px){
+  .hero h1{
+    font-size:clamp(2.4rem, 8vw, 4.2rem);
+    letter-spacing:-1px;
+    line-height:1.02;
+  }
+  .hero h1 .outlined{
+    -webkit-text-stroke:1.5px var(--ink);
+  }
+}
+
 .hero h1 .italic-accent{font-style:italic;color:var(--gold)}
-.hero h1 .outlined{color:transparent;-webkit-text-stroke:2px var(--ink)}
+.hero h1 .outlined{
+  color:transparent;
+  -webkit-text-stroke:2px var(--ink);
+}
+
+/* Keeps "Intelligence" and "Aggregated" together on their own line */
+.hero-h1-line2{
+  display:block;
+}
+
 .hero-desc{
   font-family:'DM Sans',sans-serif;
   font-size:clamp(0.88rem,2vw,1rem);
@@ -678,7 +726,7 @@ footer{
     <span class="logo-wordmark">STAR<em>FISH</em></span>
   </a>
   <div class="header-center">
-    <span class="header-tag">Sector Intelligence Platform</span>
+    <span class="header-tag"></span>
   </div>
   <div>
     <span class="live-dot">Live</span>
@@ -706,13 +754,6 @@ footer{
 
 <!-- Hero -->
 <section class="hero">
-  <div class="hero-eyebrow">11 GICS Sectors &nbsp;&middot;&nbsp; 8 Premium Sources</div>
-  <h1>
-    Sector<br>
-    <span class="italic-accent">Intelligence</span>&nbsp;<span class="outlined">Aggregated</span>
-  </h1>
-  <p class="hero-desc">Real-time financial news from Reuters, CNBC, WSJ, Yahoo Finance, MarketWatch, Financial Times, Benzinga and Seeking Alpha &mdash; all in one place.</p>
-
   <div class="selector-wrap">
     <div class="select-compound">
       <span class="sel-prefix">Sector</span>
@@ -893,8 +934,7 @@ document.getElementById('sector').addEventListener('change', function() {
 });
 </script>
 </body>
-</html>"""
-
+</html>
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
@@ -922,7 +962,7 @@ def api_news():
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("  STARFISH — Sector Intelligence Platform")
+    print("  STARFISH")
     print("  http://127.0.0.1:5000")
     print("=" * 60)
     print("\n  pip install flask httpx beautifulsoup4 lxml\n")
