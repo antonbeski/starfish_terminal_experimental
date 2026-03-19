@@ -173,8 +173,9 @@ def fetch_all_news(sector_id):
     return unique[:40]
 
 
+
 # ── HTML ──────────────────────────────────────────────────────────────────────
-<!DOCTYPE html>
+HTML = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -935,6 +936,8 @@ document.getElementById('sector').addEventListener('change', function() {
 </script>
 </body>
 </html>
+"""
+
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
@@ -962,7 +965,7 @@ def api_news():
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("  STARFISH")
+    print("  STARFISH — Sector Intelligence Platform")
     print("  http://127.0.0.1:5000")
     print("=" * 60)
     print("\n  pip install flask httpx beautifulsoup4 lxml\n")
