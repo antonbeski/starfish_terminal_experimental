@@ -274,6 +274,151 @@ header{
   background:var(--teal-light);
   animation:blink 1.3s ease-in-out infinite;
 }
+/* ============================= */
+/* 📱 MOBILE RESPONSIVENESS FIX */
+/* ============================= */
+
+/* Prevent horizontal scroll */
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* HEADER FIX */
+@media (max-width: 768px) {
+  header {
+    height: auto;
+    padding: 0.6rem 1rem;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .logo-wordmark {
+    font-size: 1.1rem;
+  }
+
+  .live-dot {
+    font-size: 0.55rem;
+    padding: 0.2rem 0.5rem;
+  }
+}
+
+/* HERO FIX */
+@media (max-width: 768px) {
+  .hero {
+    padding: 2.5rem 1rem 2rem;
+  }
+
+  .hero h1 {
+    font-size: clamp(2rem, 10vw, 3rem);
+    line-height: 1.05;
+    letter-spacing: -1px;
+  }
+
+  .hero-desc {
+    font-size: 0.85rem;
+    padding: 0 0.5rem;
+  }
+}
+
+/* SELECTOR STACK (VERY IMPORTANT) */
+@media (max-width: 640px) {
+  .select-compound {
+    flex-direction: column;
+  }
+
+  .sector-select {
+    width: 100%;
+    padding: 0.9rem;
+  }
+
+  .fetch-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* TICKER FIX */
+@media (max-width: 768px) {
+  .ticker {
+    height: 28px;
+  }
+
+  .ticker-badge {
+    font-size: 0.55rem;
+    padding: 0 0.6rem;
+  }
+
+  .t-item {
+    font-size: 0.55rem;
+    padding: 0 1rem;
+  }
+}
+
+/* GRID FIX */
+@media (max-width: 768px) {
+  .sector-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .sector-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* NEWS GRID FIX */
+@media (max-width: 768px) {
+  .news-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* CARD FIX */
+@media (max-width: 480px) {
+  .card {
+    padding: 1rem;
+  }
+
+  .card-title {
+    font-size: 0.85rem;
+  }
+}
+
+/* RESULTS HEADER STACK */
+@media (max-width: 640px) {
+  .res-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.6rem;
+  }
+
+  .res-title {
+    font-size: 1.3rem;
+  }
+}
+
+/* FILTER PILLS WRAP */
+@media (max-width: 640px) {
+  .filter-row {
+    gap: 0.3rem;
+  }
+
+  .pill {
+    font-size: 0.65rem;
+    padding: 0.25rem 0.6rem;
+  }
+}
+
+/* FOOTER STACK */
+@media (max-width: 768px) {
+  footer {
+    flex-direction: column;
+    text-align: center;
+    gap: 0.5rem;
+  }
+}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
 
 /* ── TICKER ── */
