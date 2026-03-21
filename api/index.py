@@ -813,7 +813,7 @@ footer{
 
 <footer>
   <div class="f-brand">STAR<em>FISH</em></div>
-  <div class="f-copy">Sector Intelligence Platform &copy; 2024</div>
+  <div class="f-copy">Sector Intelligence Platform &copy; 2026</div>
   <div class="f-srcs">Reuters &middot; CNBC &middot; WSJ &middot; Yahoo Finance &middot; MarketWatch &middot; FT &middot; Benzinga &middot; Seeking Alpha</div>
 </footer>
 
